@@ -1,39 +1,43 @@
-import express, { Express, Response, Request } from "express";
-import dotenv from "dotenv";
+import cors from "cors";
+import { configDotenv } from "dotenv";
+import express, { Express, Request, Response } from "express";
 import connect from "./db/conn";
-import Blog from "./models/blog.model";
-import checkAdmin from "./middleware/check.admin";
-import validateBlog from "./middleware/validate.blog";
+import Projects from "./models/project.model";
 
-dotenv.config();
+configDotenv();
 
-const server: Express = express();
-server.use(express.json());
-const port: number = parseInt(process.env.PORT as string, 10) || 3000;
+const app: Express = express();
 
-server.get("/blog-teasers", (req: Request, res: Response) => {
-    Blog.find({}, "title teaser dateTime tags").then((blogs) => {
-        res.json(blogs);
-    }).catch((error) => {
-        res.json({ message: error.message, statusCode: 500 });
-    });
+app.use(cors({ origin: ["https://rishibhalla.me", "https://www.rishibhalla.me"] }));
+app.use(express.json());
+
+app.get("/projects-list", async (req: Request, res: Response) => {
+  const projects = await Projects.find({}).select(
+    "title teaser dateTime tags id",
+  );
+  const finalprojects = projects.map((project) => {
+    return {
+      id: project.id,
+      title: project.title,
+      teaser: project.teaser,
+      dateTime: project.dateTime,
+      tags: project.tags,
+    };
+  });
+  res.json({ data: finalprojects });
 });
 
-server.post("/create-blog", [checkAdmin, validateBlog], (req: Request, res: Response) => {
-    const blog = new Blog(req.body);
-    blog.save().then(() => {
-        res.json({ message: "Blog created successfully", statusCode: 201 });
-    }).catch((error) => {
-        res.json({ message: error.message, statusCode: 500 });
-    });
+app.get("/projects/:id", async (req: Request, res: Response) => {
+  const project = await Projects.findOne({ id: req.params.id });
+  res.json({ data: project });
 });
 
-
-
-connect().then(() => {
-    server.listen(port, () => {
-        console.log(`[server]: Server is running on http://localhost:${port}`);
+connect()
+  .then(() => {
+    app.listen(process.env.PORT || 8008, () => {
+      console.log("Server is running");
     });
-}).catch((error) => {
-    console.error(`[server]: ${error}`);
-});
+  })
+  .catch((err) => {
+    console.log(err);
+  });
